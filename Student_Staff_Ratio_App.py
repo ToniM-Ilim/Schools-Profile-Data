@@ -5,7 +5,6 @@ import plotly.express as px
 st.set_page_config(page_title="Student to Staff Ratios", page_icon=":bar_chart:", layout="wide")
 st.title(" :bar_chart: Comparisons with Other Schools")
 
-
 # Cache the data loading function to improve performance
 @st.cache_data
 def load_data():
@@ -17,12 +16,19 @@ df = load_data()
 # Recreate the column_labels_dict to match Streamlit display labels
 column_labels_dict = {col: col.replace("_", " ").title() for col in df.columns}
 
+# Create a unique identifier for schools (concatenating name, suburb, and state)
+df["school_identifier"] = df["school_name"] + " (" + df["suburb"] + ", " + df["state"] + ")"
+
 # Sidebar for selecting schools
 st.sidebar.title("School Selection")
 st.sidebar.markdown("**Select one or more schools** from the list below to compare their FTE Student-Staff Ratio over time.")
 
-schools = df["school_name"].unique()
-selected_schools = st.sidebar.multiselect("Select Schools:", schools, default=["Ilim College"])
+# Ensure unique selection by displaying full school details
+schools = df["school_identifier"].unique()
+selected_schools = st.sidebar.multiselect("Select Schools:", schools, default=["Ilim College (Dallas, VIC)"])
+
+# Extract the corresponding school names from the selected identifiers
+selected_school_names = df[df["school_identifier"].isin(selected_schools)]["school_name"].unique()
 
 # Sidebar for selecting comparator
 st.sidebar.title("Comparator Selection")
@@ -32,16 +38,16 @@ comparator_options = ["National Median", "State Median", "Sector Median"]
 selected_comparator = st.sidebar.radio("Choose Comparator:", comparator_options)
 
 # Filter dataset for selected schools
-filtered_df = df[df["school_name"].isin(selected_schools)]
+filtered_df = df[df["school_identifier"].isin(selected_schools)]
 
 # Plot FTE_Student_Staff_Ratio over time
 fig = px.line(
     filtered_df,
     x="calendar_year",
     y="fte_student_staff_ratio",
-    color="school_name",
+    color="school_identifier",
     title="FTE Student-Staff Ratio Over Time",
-    labels={"fte_student_staff_ratio": "Student to Staff Ratio", "calendar_year": "Year", "school_name": ""},
+    labels={"fte_student_staff_ratio": "Student to Staff Ratio", "calendar_year": "Year", "school_identifier": ""},
     markers=True
 )
 
@@ -65,11 +71,9 @@ elif selected_comparator == "Sector Median":
         fig.add_scatter(x=sector_df["calendar_year"], y=sector_df["sector_median"], 
                         mode="lines", name=f"{sector} Sector Median")
 
-
-
-
 # Display the plot
 st.plotly_chart(fig)
+
 
 # Automatically map column names to Title Case using column_labels_dict
 column_config_dict = {col: st.column_config.TextColumn(label) for col, label in column_labels_dict.items()}
